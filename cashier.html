@@ -45,7 +45,7 @@ label{display:block;margin:8px 0;color:var(--m)}
 <script>
 const $=s=>document.querySelector(s),K='cashier_db_v1';
 let D;try{D=JSON.parse(localStorage.getItem(K))}catch(e){}
-D=D||{p:[],a:[],i:[],y:[],s:{name:'متجري',logo:''},n:1};
+D=D||{p:[],a:[],i:[],y:[],x:[],s:{name:'متجري',logo:''},n:1};D.x=D.x||[];
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(D))}catch(e){toast('تعذر الحفظ: المساحة ممتلئة')}};
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5);
 const f=n=>(+n||0).toLocaleString('en',{maximumFractionDigits:2});
@@ -119,10 +119,16 @@ M(`<h3>${E(a.name)}</h3><div class=tt>الرصيد: ${bal(a)}</div><button class
 const PY=id=>M(`<h3>تسجيل دفعة</h3><label>المبلغ<input id=pm type=number></label><button class="btn gr" onclick="SY('${id}')">حفظ الدفعة</button>`);
 function SY(id){const m=+$('#pm').value;if(!(m>0))return toast('اكتب مبلغاً صحيحاً');const a=D.a.find(x=>x.id==id);a.b+=a.t=='C'?-m:m;D.y.push({id:uid(),a:id,m,d:new Date().toISOString()});save();X();R();ST(id)}
 /* ---- reports ---- */
-const T=()=>{const s=stats(per),tp=Object.entries(s.top);const lst=(k)=>tp.sort((a,b)=>b[1][k]-a[1][k]).slice(0,5).map(([n,o])=>`<div class=card><div class=fl>${E(n)}</div><b class=gd>${f(o[k])}</b></div>`).join('')||'<p class=mut>لا بيانات</p>';
+const T=()=>{const s=stats(per),xs=D.x.filter(e=>inR(e.d,per)).reduce((a,e)=>a+e.m,0),tp=Object.entries(s.top);const lst=(k)=>tp.sort((a,b)=>b[1][k]-a[1][k]).slice(0,5).map(([n,o])=>`<div class=card><div class=fl>${E(n)}</div><b class=gd>${f(o[k])}</b></div>`).join('')||'<p class=mut>لا بيانات</p>';
 return`<div class=chips>${[['day','يومي'],['week','أسبوعي'],['month','شهري'],['year','سنوي']].map(([k,t])=>`<a class="${per==k?'on':''}" onclick="per='${k}';R()">${t}</a>`).join('')}</div>
-<div class=row><div class=kp><small>إجمالي المبيعات</small><b>${f(s.s)}</b></div><div class="kp or"><small>إجمالي التكلفة</small><b>${f(s.c)}</b></div></div><div class=row><div class="kp gr"><small>صافي الأرباح</small><b>${f(s.pr)}</b></div><div class="kp rd"><small>الديون المستحقة</small><b>${f(debts())}</b></div></div>
+<div class=row><div class=kp><small>إجمالي المبيعات</small><b>${f(s.s)}</b></div><div class="kp or"><small>إجمالي التكلفة</small><b>${f(s.c)}</b></div></div><div class=row><div class="kp gr"><small>ربح المبيعات</small><b>${f(s.pr)}</b></div><div class="kp rd"><small>الديون المستحقة</small><b>${f(debts())}</b></div></div>
+<div class=row><div class="kp or"><small>المصروفات</small><b>${f(xs)}</b></div><div class="kp gr"><small>الصافي بعد المصروفات</small><b>${f(s.pr-xs)}</b></div></div><div class=row><button class="btn ln" onclick="XA()">+ تسجيل مصروف</button><button class="btn ln" onclick="XL()">سجل المصروفات</button></div>
 <h3 class=gd>الأكثر مبيعاً (بالكمية)</h3>${lst('q')}<h3 class=gd>الأكثر ربحاً</h3>${lst('p')}`};
+/* ---- expenses ---- */
+const XA=()=>M(`<h3>مصروف جديد</h3><label>البيان<input id=xt placeholder="إيجار، كهرباء، نت..."></label><label>المبلغ<input id=xm type=number></label><button class="btn gr" onclick="XV()">حفظ</button>`);
+function XV(){const t=$('#xt').value.trim(),m=+$('#xm').value;if(!t||!(m>0))return toast('اكتب البيان والمبلغ');D.x.push({id:uid(),t,m,d:new Date().toISOString()});save();X();R()}
+function XL(){M(`<h3>سجل المصروفات</h3>${D.x.slice().sort((a,b)=>b.d.localeCompare(a.d)).slice(0,100).map(e=>`<div class=card onclick="XR('${e.id}')"><div class=fl><b>${E(e.t)}</b><small>${new Date(e.d).toLocaleDateString('ar-EG')}</small></div><b class=gd>${f(e.m)}</b></div>`).join('')||'<p class=mut>لا مصروفات</p>'}<p class=mut>اضغط على مصروف لحذفه</p>`)}
+const XR=id=>CF('حذف المصروف؟',()=>{D.x=D.x.filter(e=>e.id!=id);save();X();R()});
 /* ---- settings / backup ---- */
 const day=()=>new Date().toISOString().slice(0,10);
 function CF(m,fn){M(`<h3>${m}</h3><button class="btn rd" id=cy>تأكيد</button><button class="btn ln" onclick="X()">إلغاء</button>`);$('#cy').onclick=fn}
@@ -134,7 +140,7 @@ async function XC(){try{await navigator.clipboard.writeText(XF.t)}catch(e){const
 function IM(k){M(`<h3>${k=='b'?'استرجاع نسخة احتياطية':'استيراد أصناف'}</h3><label class="btn" style="position:relative;text-align:center;overflow:hidden">اختيار ملف JSON<input type=file accept=".json,application/json,text/plain" onchange="IF(this,'${k}')" style="position:absolute;inset:0;opacity:0;width:100%"></label><label>أو الصق محتوى الملف هنا<textarea id=ip style="width:100%;height:100px;background:#0d0b08;color:var(--t);border:1px solid var(--b);border-radius:8px"></textarea></label><button class="btn ln" onclick="IA('${k}',$('#ip').value)">تطبيق المحتوى الملصق</button><button class="btn ln" onclick="S()">رجوع</button>`)}
 function IF(el,k){const f=el.files[0];if(!f)return;const r=new FileReader();r.onload=()=>IA(k,r.result);r.readAsText(f)}
 function IA(k,t){let o;try{o=JSON.parse(t)}catch(e){return toast('المحتوى غير صالح')}
-if(k=='b'){if(!Array.isArray(o.p)||!Array.isArray(o.a)||!Array.isArray(o.i))return toast('ليست نسخة احتياطية صحيحة');CF('سيتم استبدال كل البيانات الحالية. متابعة؟',()=>{D=o;save();X();R();toast('تم الاسترجاع')})}
+if(k=='b'){if(!Array.isArray(o.p)||!Array.isArray(o.a)||!Array.isArray(o.i))return toast('ليست نسخة احتياطية صحيحة');CF('سيتم استبدال كل البيانات الحالية. متابعة؟',()=>{D=o;D.x=D.x||[];save();X();R();toast('تم الاسترجاع')})}
 else{if(!Array.isArray(o))return toast('ملف أصناف غير صالح');let n=0,u=0;o.forEach(x=>{if(!x.name)return;const e=x.barcode&&D.p.find(p=>p.barcode==x.barcode);if(e){Object.assign(e,{name:x.name,cat:x.cat,buy:x.buy,sell:x.sell});u++}else{D.p.push({id:uid(),barcode:x.barcode||'',name:x.name,cat:x.cat||'',buy:+x.buy||0,sell:+x.sell||0,q:+x.q||0,min:+x.min||5});n++}});save();X();R();toast(`أضيف ${n} وحُدّث ${u}`)}}
 function S(){M(`<h3>الإعدادات والنسخ الاحتياطي</h3><label>اسم المتجر<input value="${E(D.s.name)}" onchange="D.s.name=this.value;save();R()"></label><label class="btn ln" style="position:relative;text-align:center;overflow:hidden">اختيار شعار المتجر${D.s.logo?' ✓':''}<input type=file accept="image/*" onchange="LG(this)" style="position:absolute;inset:0;opacity:0;width:100%"></label>
 <button class=btn onclick="EX('cashier-backup-'+day()+'.json',JSON.stringify(D))">نسخة احتياطية كاملة</button><button class="btn ln" onclick="IM('b')">استرجاع نسخة احتياطية</button><button class="btn ln" onclick="EX('products-'+day()+'.json',JSON.stringify(D.p))">تصدير الأصناف (للمشاركة بين الهواتف)</button><button class="btn ln" onclick="IM('p')">استيراد أصناف</button>
